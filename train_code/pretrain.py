@@ -23,9 +23,9 @@ import logging
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 warnings.simplefilter(action='ignore', category=FutureWarning)
 warnings.simplefilter(action='ignore', category=Warning)
-tf.get_logger().setLevel('INFO')
-tf.autograph.set_verbosity(0)
-tf.get_logger().setLevel(logging.ERROR)
+# tf.get_logger().setLevel('INFO')
+# tf.autograph.set_verbosity(0)
+# tf.get_logger().setLevel(logging.ERROR)
 
 os.environ["CUDA_VISIBLE_DEVICES"]="0"
 
@@ -69,8 +69,8 @@ def train(args):
     sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options))
     saver = tf.train.Saver(var_list=gene_vars, max_to_keep=20)
    
-    with tf.device('/device:GPU:0'):
-    # with tf.device('device:XLA_GPU:0'):
+    #with tf.device('/device:GPU:0'):
+    with tf.device('device:XLA_GPU:0'):
         sess.run(tf.global_variables_initializer())
         photo_dir = args.photo_image
         photo_list = utils.load_image_list(photo_dir)
@@ -84,7 +84,7 @@ def train(args):
 
                 print('pretrain, iter: {}, recon_loss: {}'.format(total_iter, r_loss))
                 if np.mod(total_iter+1, 500 ) == 0:
-                    saver.save(sess, os.path.join(args.save_dir, 'save_models/model'), 
+                    saver.save(sess, os.path.join(args.save_dir, 'saved_models/model'), 
                                write_meta_graph=False, global_step=total_iter)
                      
                     photo = utils.next_batch(photo_list, args.batch_size)
