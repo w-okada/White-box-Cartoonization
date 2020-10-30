@@ -68,7 +68,8 @@ def train(args):
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=args.gpu_fraction)
     sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options))
     saver = tf.train.Saver(var_list=gene_vars, max_to_keep=20)
-   
+
+    os.makedirs(args.save_dir, exist_ok=True)
     #with tf.device('/device:GPU:0'):
     with tf.device('device:XLA_GPU:0'):
         sess.run(tf.global_variables_initializer())

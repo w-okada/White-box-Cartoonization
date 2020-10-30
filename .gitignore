@@ -1,6 +1,6 @@
 train_code/dataset
 train_code/__pycache__
 train_code/selective_search/__pycache__
-train_code/pretrainsave_models/
 train_code/pretrain/
-
+train_code/train_cartoon/
+train_code/vgg19_no_fc.npy

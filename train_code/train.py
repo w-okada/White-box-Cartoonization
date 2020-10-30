@@ -20,6 +20,16 @@ import network
 import loss
 
 from tqdm import tqdm
+
+import warnings
+import logging
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+warnings.simplefilter(action='ignore', category=FutureWarning)
+warnings.simplefilter(action='ignore', category=Warning)
+# tf.get_logger().setLevel('INFO')
+# tf.autograph.set_verbosity(0)
+# tf.get_logger().setLevel(logging.ERROR)
+
 from guided_filter import guided_filter
 
 os.environ["CUDA_VISIBLE_DEVICES"]="0"
@@ -27,13 +37,17 @@ os.environ["CUDA_VISIBLE_DEVICES"]="0"
 
 def arg_parser():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--patch_size", default = 256, type = int)
-    parser.add_argument("--batch_size", default = 16, type = int)     
-    parser.add_argument("--total_iter", default = 100000, type = int)
-    parser.add_argument("--adv_train_lr", default = 2e-4, type = float)
-    parser.add_argument("--gpu_fraction", default = 0.5, type = float)
-    parser.add_argument("--save_dir", default = 'train_cartoon', type = str)
-    parser.add_argument("--use_enhance", default = False)
+    parser.add_argument("--photo_image",   default = 'dataset/photo_movie_ss_r',      type = str)    
+    parser.add_argument("--cartoon_image", default = 'dataset/cartoon_movie_ss_r',    type = str)        
+    parser.add_argument("--pre_save_dir",  default = 'pretrain/saved_models',         type = str)        
+    parser.add_argument("--vgg_19",        default = './vgg19_no_fc.npy',             type = str)        
+    parser.add_argument("--patch_size",    default = 256,                             type = int)
+    parser.add_argument("--batch_size",    default = 16,                              type = int)     
+    parser.add_argument("--total_iter",    default = 100000,                          type = int)
+    parser.add_argument("--adv_train_lr",  default = 2e-4,                            type = float)
+    parser.add_argument("--gpu_fraction",  default = 0.5,                             type = float)
+    parser.add_argument("--save_dir",      default = 'train_cartoon',                 type = str)
+    parser.add_argument("--use_enhance",   default = False)
 
     args = parser.parse_args()
     
@@ -66,7 +80,7 @@ def train(args):
                                              scale=1, patch=True, name='disc_blur')
 
 
-    vgg_model = loss.Vgg19('vgg19_no_fc.npy')
+    vgg_model = loss.Vgg19(args.vgg_19)
     vgg_photo = vgg_model.build_conv4_4(input_photo)
     vgg_output = vgg_model.build_conv4_4(output)
     vgg_superpixel = vgg_model.build_conv4_4(input_superpixel)
@@ -122,26 +136,18 @@ def train(args):
     with tf.device('/device:GPU:0'):
 
         sess.run(tf.global_variables_initializer())
-        saver.restore(sess, tf.train.latest_checkpoint('pretrain/saved_models'))
+        print(args.pre_save_dir)
+        saver.restore(sess, tf.train.latest_checkpoint(args.pre_save_dir))
 
-        face_photo_dir = 'dataset/photo_face'
-        face_photo_list = utils.load_image_list(face_photo_dir)
-        scenery_photo_dir = 'dataset/photo_scenery'
-        scenery_photo_list = utils.load_image_list(scenery_photo_dir)
+        photo_dir = args.photo_image
+        photo_list = utils.load_image_list(photo_dir)
 
-        face_cartoon_dir = 'dataset/cartoon_face'
-        face_cartoon_list = utils.load_image_list(face_cartoon_dir)
-        scenery_cartoon_dir = 'dataset/cartoon_scenery'
-        scenery_cartoon_list = utils.load_image_list(scenery_cartoon_dir)
+        cartoon_dir = args.cartoon_image
+        cartoon_list = utils.load_image_list(cartoon_dir)
 
         for total_iter in tqdm(range(args.total_iter)):
-
-            if np.mod(total_iter, 5) == 0: 
-                photo_batch = utils.next_batch(face_photo_list, args.batch_size)
-                cartoon_batch = utils.next_batch(face_cartoon_list, args.batch_size)
-            else:
-                photo_batch = utils.next_batch(scenery_photo_list, args.batch_size)
-                cartoon_batch = utils.next_batch(scenery_cartoon_list, args.batch_size)
+            photo_batch = utils.next_batch(photo_list, args.batch_size)
+            cartoon_batch = utils.next_batch(cartoon_list, args.batch_size)
         
             inter_out = sess.run(output, feed_dict={input_photo: photo_batch, 
                                                     input_superpixel: photo_batch,
@@ -177,31 +183,21 @@ def train(args):
                 print('Iter: {}, d_loss: {}, g_loss: {}, recon_loss: {}'.\
                         format(total_iter, d_loss, g_loss, r_loss))
                 if np.mod(total_iter+1, 500 ) == 0:
-                    saver.save(sess, args.save_dir+'/saved_models/model', 
+                    saver.save(sess, os.path.join(args.save_dir,'/saved_models/model'), 
                                write_meta_graph=False, global_step=total_iter)
                      
-                    photo_face = utils.next_batch(face_photo_list, args.batch_size)
-                    cartoon_face = utils.next_batch(face_cartoon_list, args.batch_size)
-                    photo_scenery = utils.next_batch(scenery_photo_list, args.batch_size)
-                    cartoon_scenery = utils.next_batch(scenery_cartoon_list, args.batch_size)
+                    photo = utils.next_batch(photo_list, args.batch_size)
+                    cartoon = utils.next_batch(cartoon_list, args.batch_size)
 
-                    result_face = sess.run(output, feed_dict={input_photo: photo_face, 
-                                                            input_superpixel: photo_face,
-                                                            input_cartoon: cartoon_face})
+                    result = sess.run(output, feed_dict={input_photo: photo, 
+                                                            input_superpixel: photo,
+                                                            input_cartoon: cartoon})
 
-                    result_scenery = sess.run(output, feed_dict={input_photo: photo_scenery, 
-                                                                input_superpixel: photo_scenery,
-                                                                input_cartoon: cartoon_scenery})
 
-                    utils.write_batch_image(result_face, args.save_dir+'/images', 
-                                            str(total_iter)+'_face_result.jpg', 4)
-                    utils.write_batch_image(photo_face, args.save_dir+'/images', 
-                                            str(total_iter)+'_face_photo.jpg', 4)
-
-                    utils.write_batch_image(result_scenery, args.save_dir+'/images', 
-                                            str(total_iter)+'_scenery_result.jpg', 4)
-                    utils.write_batch_image(photo_scenery, args.save_dir+'/images', 
-                                            str(total_iter)+'_scenery_photo.jpg', 4)
+                    utils.write_batch_image(result, os.path.join(args.save_dir, '/images'), 
+                                            str(total_iter)+'_result.jpg', 4)
+                    utils.write_batch_image(photo, os.path.join(args.save_dir, '/images'), 
+                                            str(total_iter)+'_photo.jpg', 4)
 
             
 if __name__ == '__main__':
