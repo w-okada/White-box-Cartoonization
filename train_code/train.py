@@ -4,12 +4,16 @@ Source code for CVPR 2020 paper
 by Xinrui Wang and Jinze yu
 '''
 
+import sys
+import os
+print(sys.path)
+sys.path.append(os.path.join(os.path.dirname(__file__), 'selective_search'))
+print(sys.path)
 
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
 
 import utils
-import os
 import numpy as np
 import argparse
 import network 

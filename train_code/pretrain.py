@@ -5,12 +5,16 @@ by Xinrui Wang and Jinze yu
 '''
 
 
+import sys
+import os
+print(sys.path)
+sys.path.append(os.path.join(os.path.dirname(__file__), 'selective_search'))
+print(sys.path)
 
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
 
 import utils
-import os
 import numpy as np
 import argparse
 import network 
@@ -36,8 +40,6 @@ def arg_parser():
 
 
 def train(args):
-    
-
     input_photo = tf.placeholder(tf.float32, [args.batch_size, 
                                 args.patch_size, args.patch_size, 3])
     
@@ -47,10 +49,9 @@ def train(args):
 
     all_vars = tf.trainable_variables()
     gene_vars = [var for var in all_vars if 'gene' in var.name]
-      
+
     update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
     with tf.control_dependencies(update_ops):
-        
         optim = tf.train.AdamOptimizer(args.adv_train_lr, beta1=0.5, beta2=0.99)\
                                         .minimize(recon_loss, var_list=gene_vars)
         
@@ -65,7 +66,7 @@ def train(args):
     saver = tf.train.Saver(var_list=gene_vars, max_to_keep=20)
    
     with tf.device('/device:GPU:0'):
-
+    # with tf.device('device:XLA_GPU:0'):
         sess.run(tf.global_variables_initializer())
         face_photo_dir = 'dataset/photo_face'
         face_photo_list = utils.load_image_list(face_photo_dir)
