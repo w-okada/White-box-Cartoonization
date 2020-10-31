@@ -132,7 +132,10 @@ def train(args):
     train_writer = tf.summary.FileWriter(args.save_dir+'/train_log')
     summary_op = tf.summary.merge_all()
     saver = tf.train.Saver(var_list=gene_vars, max_to_keep=20)
-   
+
+    out_path = os.path.join(args.save_dir, 'saved_models')
+    # print("out:"+out_path)
+    # saver.restore(sess, tf.train.latest_checkpoint(out_path))
     with tf.device('/device:GPU:0'):
 
         sess.run(tf.global_variables_initializer())
@@ -178,12 +181,12 @@ def train(args):
 
             train_writer.add_summary(train_info, total_iter)
             
-            if np.mod(total_iter+1, 50) == 0:
+            if np.mod(total_iter+1, 100) == 0:
 
                 print('Iter: {}, d_loss: {}, g_loss: {}, recon_loss: {}'.\
                         format(total_iter, d_loss, g_loss, r_loss))
-                if np.mod(total_iter+1, 500 ) == 0:
-                    saver.save(sess, os.path.join(args.save_dir,'/saved_models/model'), 
+                if np.mod(total_iter+1, 2000 ) == 0:
+                    saver.save(sess, out_path+"/model", 
                                write_meta_graph=False, global_step=total_iter)
                      
                     photo = utils.next_batch(photo_list, args.batch_size)
@@ -194,9 +197,9 @@ def train(args):
                                                             input_cartoon: cartoon})
 
 
-                    utils.write_batch_image(result, os.path.join(args.save_dir, '/images'), 
+                    utils.write_batch_image(result, os.path.join(args.save_dir, 'images'), 
                                             str(total_iter)+'_result.jpg', 4)
-                    utils.write_batch_image(photo, os.path.join(args.save_dir, '/images'), 
+                    utils.write_batch_image(photo, os.path.join(args.save_dir, 'images'), 
                                             str(total_iter)+'_photo.jpg', 4)
 
             
